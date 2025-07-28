@@ -7,14 +7,15 @@ import altair as alt
 
 # ----- PAGE CONFIG -----
 st.set_page_config(page_title="HVAC Dashboard", layout="wide")
-page = st.sidebar.radio("Go to", ["Executive Summary", "Occupancy", "Setpoint & Comfort Monitoring"])
-
-
+page = st.sidebar.radio("Go to", ["Executive Summary", "Occupancy", "Setpoint & Comfort Monitoring","Forecasting Model and Evaluation"])
 
 # ----- LOAD DATA -----
 df = pd.read_csv("hvac_updated.csv", parse_dates=["timestamp"])
 df["hour"] = df["timestamp"].dt.hour
 df["day_of_week"] = df["timestamp"].dt.day_name()
+
+# Create 'month_year' column for trend analysis
+df["month_year"] = df["timestamp"].dt.to_period("M").astype(str)
 
 # ----- EXECUTIVE SUMMARY PAGE -----
 if page == "Executive Summary":
@@ -42,11 +43,29 @@ if page == "Executive Summary":
     with col5: st.metric("👥 Avg. Occupancy (%)", f"{average_occupancy_pct:.1f}%")
     with col6: st.metric("🌡️ Comfort Compliance (%)", f"{comfort_compliance_pct:.1f}%")
     with col7: st.metric("🚶‍♂️ Peak Occupancy Count", f"{peak_occupancy_count}")
-    
-    
 
     st.markdown("## 📈 Energy Performance")
-    
+
+    # ----- LINE CHART: Monthly Cooling Load Trend -----
+    st.markdown("### 📅 Monthly Cooling Load Trend")
+    monthly_trend_df = df.groupby("month_year")["actual_cooling_load_kWh"].sum().reset_index()
+
+    fig = px.line(
+    monthly_trend_df,
+    x="month_year",  # ✅ Use the correct column name
+    y="actual_cooling_load_kWh",
+    markers=True,
+    labels={"month_year": "Month", "actual_cooling_load_kWh": "Cooling Load (kWh)"},
+    title="Cooling Load Trend Over Months"
+)
+
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title="Total Cooling Load (kWh)",
+        font=dict(color="#262730"),
+        
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
     # ----- BAR CHART: Zone-wise Cooling Load -----
     st.markdown("### 🗂️ Energy Consumption by Zone")
@@ -161,3 +180,74 @@ elif page == "Setpoint & Comfort Monitoring":
     )
 
     st.altair_chart(box_plot, use_container_width=True)
+    
+    # ----- FORECASTING MODEL AND EVALUATION PAGE -----
+elif page == "Forecasting Model and Evaluation":
+    st.title("📉 Forecasting Model Evaluation")
+
+    # Ensure required columns exist
+    if "actual_cooling_load_kWh" in df.columns and "predicted_cooling_load_kWh" in df.columns:
+
+        # Calculate absolute error
+        df["prediction_error"] = abs(df["actual_cooling_load_kWh"] - df["predicted_cooling_load_kWh"])
+
+        # Optionally extract month for grouping (if 'timestamp' column exists)
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            df["Month"] = df["timestamp"].dt.strftime('%b-%Y')
+
+        # 1. 📦 ERROR DISTRIBUTION BOXPLOT
+        st.markdown("### 📦 Distribution of Absolute Errors")
+        if "Month" in df.columns:
+            box_fig = px.box(
+                df,
+                x="Month",
+                y="prediction_error",
+                title="Distribution of Absolute Errors by Month",
+                labels={
+                    "Month": "Month",
+                    "prediction_error": "Absolute Error (kWh)"
+                },
+                color_discrete_sequence=["#636EFA"]
+            )
+        else:
+            box_fig = px.box(
+                df,
+                y="prediction_error",
+                title="Distribution of Absolute Errors",
+                labels={
+                    "prediction_error": "Absolute Error (kWh)"
+                },
+                color_discrete_sequence=["#636EFA"]
+            )
+        box_fig.update_layout(
+            xaxis_title="Month" if "Month" in df.columns else "",
+            yaxis_title="Absolute Error (kWh)",
+            font=dict(color="#262730"),
+            
+        )
+        st.plotly_chart(box_fig, use_container_width=True)
+
+        # 2. 🔍 SCATTER PLOT: Predicted vs Actual
+        st.markdown("### 🔍 Predicted vs Actual Cooling Load")
+        scatter_fig = px.scatter(
+            df,
+            x="predicted_cooling_load_kWh",
+            y="actual_cooling_load_kWh",
+            title="Predicted vs Actual Cooling Load",
+            labels={
+                "predicted_cooling_load_kWh": "Predicted Cooling Load (kWh)",
+                "actual_cooling_load_kWh": "Actual Cooling Load (kWh)"
+            },
+            opacity=0.6,
+            trendline="ols",
+            color_discrete_sequence=["#EF553B"]
+        )
+        scatter_fig.update_layout(
+            font=dict(color="#262730"),
+            
+        )
+        st.plotly_chart(scatter_fig, use_container_width=True)
+
+    else:
+        st.warning("The dataset must contain 'actual_cooling_load_kWh' and 'predicted_cooling_load_kWh' columns.")
