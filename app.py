@@ -124,28 +124,58 @@ elif page == "Occupancy":
 
     st.altair_chart(scatter, use_container_width=True)
 
-# ----- SETPOINT & COMFORT MONITORING PAGE -----
+
 elif page == "Setpoint & Comfort Monitoring":
-    st.title("🌡️ Setpoint & Comfort Monitoring")
+    st.title("🌡️ Zone-wise Setpoint Monitoring")
 
-    # ----- 1. LINE CHART: STANDARD VS ADJUSTED SETPOINT -----
-    st.markdown("### 🔁 Standard vs Adjusted Setpoint Over Time")
+    # Time Interval selector
+    interval = st.selectbox("Choose Time Interval", ["Hourly", "Daily"])
 
-    # Fold the two setpoint columns into one for Altair line chart
-    line_chart = alt.Chart(df).transform_fold(
-        ['standard_setpoint', 'adjusted_setpoint'],
-        as_=['Setpoint_Type', 'Setpoint_Value']
-    ).mark_line(point=True).encode(
-        x=alt.X('timestamp:T', title='Timestamp'),
-        y=alt.Y('Setpoint_Value:Q', title='Setpoint (°C)'),
-        color=alt.Color('Setpoint_Type:N', title='Setpoint Type'),
-        tooltip=['timestamp:T', 'Setpoint_Type:N', 'Setpoint_Value:Q']
+    # Convert timestamp to datetime
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+    # Create time group
+    if interval == "Hourly":
+        df['time_group'] = df['timestamp'].dt.floor('H')
+    else:
+        df['time_group'] = df['timestamp'].dt.floor('D')
+
+    # Group by zone and time
+    df_grouped = df.groupby(['zone_id', 'time_group']).agg({
+        'standard_setpoint': 'mean',
+        'adjusted_setpoint': 'mean'
+    }).reset_index()
+
+    # Melt for Altair
+    df_melted = df_grouped.melt(
+        id_vars=['zone_id', 'time_group'],
+        value_vars=['standard_setpoint', 'adjusted_setpoint'],
+        var_name='Setpoint Type',
+        value_name='Value'
+    )
+
+    # Line Chart
+    st.markdown(f"### 📊 {interval} Setpoint Trends by Zone")
+
+    chart = alt.Chart(df_melted).mark_line(point=True).encode(
+        x=alt.X('time_group:T', title='Time'),
+        y=alt.Y('Value:Q', title='Setpoint'),
+        color='zone_id:N',
+        strokeDash='Setpoint Type:N',
+        tooltip=['zone_id:N', 'time_group:T', 'Setpoint Type:N', 'Value:Q']
     ).properties(
         width='container',
-        height=350
+        height=400
     ).interactive()
 
-    st.altair_chart(line_chart, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
+
+    # Optional Data Preview
+    st.markdown("### 📄 Aggregated Data Preview")
+    st.dataframe(df_grouped.head())
+
+
+
 
     # ----- 2. BOXPLOT: ZONE COMFORT DISTRIBUTION -----
     st.markdown("### 📦 Zone-Wise Adjusted Setpoint Distribution")
