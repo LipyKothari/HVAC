@@ -12,7 +12,7 @@ page = st.sidebar.radio("Go to", ["Executive Summary", "Occupancy", "Setpoint & 
 
 
 # ----- LOAD DATA -----
-df = pd.read_csv("hvac_features.csv", parse_dates=["timestamp"])
+df = pd.read_csv("hvac_updated.csv", parse_dates=["timestamp"])
 df["hour"] = df["timestamp"].dt.hour
 df["day_of_week"] = df["timestamp"].dt.day_name()
 
@@ -42,8 +42,11 @@ if page == "Executive Summary":
     with col5: st.metric("👥 Avg. Occupancy (%)", f"{average_occupancy_pct:.1f}%")
     with col6: st.metric("🌡️ Comfort Compliance (%)", f"{comfort_compliance_pct:.1f}%")
     with col7: st.metric("🚶‍♂️ Peak Occupancy Count", f"{peak_occupancy_count}")
+    
+    
 
     st.markdown("## 📈 Energy Performance")
+    
 
     # ----- BAR CHART: Zone-wise Cooling Load -----
     st.markdown("### 🗂️ Energy Consumption by Zone")
