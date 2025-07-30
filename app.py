@@ -90,7 +90,7 @@ if page == "Executive Summary":
     st.plotly_chart(fig, use_container_width=True)
 
     # ----- DONUT CHART: Cooling Load by Zone Function -----
-    st.markdown("### 🍩 Cooling Load Distribution by Zone Function")
+    st.markdown("### Cooling Load Distribution by Zone Function")
     function_df = df.groupby("zone_function")["actual_cooling_load_kWh"].sum().reset_index()
 
     fig = px.pie(
