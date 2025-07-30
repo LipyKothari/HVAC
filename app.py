@@ -165,56 +165,45 @@ elif page == "Setpoint & Comfort Monitoring":
 
     df_zone = df[df['zone_id'] == selected_zone]
 
-    # Group and aggregate
-    df_grouped = df_zone.groupby(['time_group']).agg({
-        'standard_setpoint': 'mean',
-        'adjusted_setpoint': 'mean'
+        # Group and average
+        # Filter by selected zone
+    df_filtered = df[df["zone_id"] == selected_zone]
+    df_grouped = df_filtered.groupby(["time_group"]).agg({
+        "standard_setpoint": "mean",
+        "adjusted_setpoint": "mean",
+        "occupancy_count": "sum"  # ← Add this line
     }).reset_index()
 
-    # Plot using Plotly
-    fig = px.line(
-        df_grouped,
-        x="time_group",
-        y=["standard_setpoint", "adjusted_setpoint"],
-        labels={"value": "Setpoint (°C)", "time_group": "Time"},
-        title=f"{selected_zone} - Setpoint Monitoring ({interval})"
-    )
-    fig.update_traces(mode='lines+markers')
-    fig.update_layout(
-        legend_title_text="Setpoint Type",
-        xaxis_title="Time",
-        yaxis_title="Temperature (°C)",
-        hovermode="x unified"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Line Chart
-    st.markdown(f"### 📊 {interval} Setpoint Trends by Zone")
-
+    # Melt for setpoints
     df_melted = df_grouped.melt(id_vars=['time_group'], 
-                            value_vars=['standard_setpoint', 'adjusted_setpoint'],
-                            var_name='Setpoint Type',
-                            value_name='Value')
+                                value_vars=['standard_setpoint', 'adjusted_setpoint'],
+                                var_name='Setpoint Type',
+                                value_name='Value')
     df_melted['zone_id'] = selected_zone
 
-    chart = alt.Chart(df_melted).mark_line(point=True).encode(
+    # Setpoint line chart
+    setpoint_chart = alt.Chart(df_melted).mark_line(point=True).encode(
         x=alt.X('time_group:T', title='Time'),
-        y=alt.Y('Value:Q', title='Setpoint'),
+        y=alt.Y('Value:Q', title='Setpoint (°C)'),
         color='zone_id:N',
         strokeDash='Setpoint Type:N',
         tooltip=['zone_id:N', 'time_group:T', 'Setpoint Type:N', 'Value:Q']
-    ).properties(
-        width='container',
-        height=400
-    ).interactive()
+    ).properties(height=300).interactive()
 
-    st.altair_chart(chart, use_container_width=True)
+    # Occupancy chart (bar or line)
+    occupancy_chart = alt.Chart(df_grouped).mark_bar(color='orange').encode(
+        x='time_group:T',
+        y=alt.Y('occupancy_count:Q', title='Occupancy (Count)'),
+        tooltip=['time_group:T', 'occupancy_count']
+    ).properties(height=100)
 
-    # Optional Data Preview
-    st.markdown("### 📄 Aggregated Data Preview")
-    st.dataframe(df_grouped.head())
+    # Combine charts vertically
+    final_chart = alt.vconcat(setpoint_chart, occupancy_chart).resolve_scale(
+        x='shared'
+    )
 
+    # Display in Streamlit
+    st.altair_chart(final_chart, use_container_width=True)
 
 
 
