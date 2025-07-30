@@ -196,20 +196,31 @@ elif page == "Setpoint & Comfort Monitoring":
 
 
 
+
     # ----- 2. BOXPLOT: ZONE COMFORT DISTRIBUTION -----
     st.markdown("### 📦 Zone-Wise Adjusted Setpoint Distribution")
 
-    box_plot = alt.Chart(df).mark_boxplot(extent='min-max').encode(
-        x=alt.X('zone_type:N', title='Zone Type'),
-        y=alt.Y('adjusted_setpoint:Q', title='Adjusted Setpoint (°C)'),
-        color=alt.Color('zone_type:N', legend=None),
-        tooltip=['zone_type:N', 'adjusted_setpoint:Q']
-    ).properties(
-        width='container',
-        height=350
+    group_col = st.selectbox("Group setpoints by:", ["zone_type", "zone_function"])
+
+    df_filtered = df.dropna(subset=[group_col, "adjusted_setpoint"])
+
+    fig_box = px.box(
+        df_filtered,
+        x=group_col,
+        y="adjusted_setpoint",
+        color=group_col,
+        points="outliers",
+        title=f"Distribution of Adjusted Setpoints by {group_col.replace('_', ' ').title()}",
     )
 
-    st.altair_chart(box_plot, use_container_width=True)
+    fig_box.update_layout(
+        xaxis_title=group_col.replace('_', ' ').title(),
+        yaxis_title="Adjusted Setpoint (°C)",
+        font=dict(color="#262730"),
+        showlegend=False
+    )
+
+    st.plotly_chart(fig_box, use_container_width=True)
     
     # ----- FORECASTING MODEL AND EVALUATION PAGE -----
 elif page == "Forecasting Model and Evaluation":
