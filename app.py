@@ -380,4 +380,3 @@ elif page == "Operational Overview":
         st.plotly_chart(fig_zone, use_container_width=True)
     else:
         st.warning("Zoning mode data not found.")
-
