@@ -192,6 +192,12 @@ elif page == "Setpoint & Comfort Monitoring":
     # Line Chart
     st.markdown(f"### 📊 {interval} Setpoint Trends by Zone")
 
+    df_melted = df_grouped.melt(id_vars=['time_group'], 
+                            value_vars=['standard_setpoint', 'adjusted_setpoint'],
+                            var_name='Setpoint Type',
+                            value_name='Value')
+    df_melted['zone_id'] = selected_zone
+
     chart = alt.Chart(df_melted).mark_line(point=True).encode(
         x=alt.X('time_group:T', title='Time'),
         y=alt.Y('Value:Q', title='Setpoint'),
@@ -237,6 +243,7 @@ elif page == "Setpoint & Comfort Monitoring":
     )
 
     st.plotly_chart(fig_box, use_container_width=True)
+
     
     # ----- FORECASTING MODEL AND EVALUATION PAGE -----
 elif page == "Forecasting Model and Evaluation":
