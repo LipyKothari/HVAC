@@ -7,7 +7,7 @@ import altair as alt
 
 # ----- PAGE CONFIG -----
 st.set_page_config(page_title="HVAC Dashboard", layout="wide")
-page = st.sidebar.radio("Go to", ["Executive Summary", "Occupancy", "Setpoint & Comfort Monitoring","Forecasting Model and Evaluation"])
+page = st.sidebar.radio("Go to", ["Executive Summary", "Occupancy", "Setpoint & Comfort Monitoring","Forecasting Model and Evaluation", "Operational Overview"])
 
 # ----- LOAD DATA -----
 df = pd.read_csv("hvac_updated.csv", parse_dates=["timestamp"])
@@ -143,35 +143,51 @@ elif page == "Occupancy":
 
     st.altair_chart(scatter, use_container_width=True)
 
-
+# ----- SETPOINT & COMFORT MONITORING PAGE -----
 elif page == "Setpoint & Comfort Monitoring":
     st.title("🌡️ Zone-wise Setpoint Monitoring")
 
-    # Time Interval selector
-    interval = st.selectbox("Choose Time Interval", ["Hourly", "Daily"])
-
-    # Convert timestamp to datetime
+    # Convert timestamp
     df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-    # Create time group
+    # Select interval
+    interval = st.selectbox("Choose Time Interval", ["Hourly", "Daily"])
+
+    # Create time_group column
     if interval == "Hourly":
         df['time_group'] = df['timestamp'].dt.floor('H')
     else:
         df['time_group'] = df['timestamp'].dt.floor('D')
 
-    # Group by zone and time
-    df_grouped = df.groupby(['zone_id', 'time_group']).agg({
+    # Optional: zone filter to avoid clutter
+    zones = df['zone_id'].unique().tolist()
+    selected_zone = st.selectbox("Select Zone", sorted(zones))
+
+    df_zone = df[df['zone_id'] == selected_zone]
+
+    # Group and aggregate
+    df_grouped = df_zone.groupby(['time_group']).agg({
         'standard_setpoint': 'mean',
         'adjusted_setpoint': 'mean'
     }).reset_index()
 
-    # Melt for Altair
-    df_melted = df_grouped.melt(
-        id_vars=['zone_id', 'time_group'],
-        value_vars=['standard_setpoint', 'adjusted_setpoint'],
-        var_name='Setpoint Type',
-        value_name='Value'
+    # Plot using Plotly
+    fig = px.line(
+        df_grouped,
+        x="time_group",
+        y=["standard_setpoint", "adjusted_setpoint"],
+        labels={"value": "Setpoint (°C)", "time_group": "Time"},
+        title=f"{selected_zone} - Setpoint Monitoring ({interval})"
     )
+    fig.update_traces(mode='lines+markers')
+    fig.update_layout(
+        legend_title_text="Setpoint Type",
+        xaxis_title="Time",
+        yaxis_title="Temperature (°C)",
+        hovermode="x unified"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     # Line Chart
     st.markdown(f"### 📊 {interval} Setpoint Trends by Zone")
@@ -281,3 +297,80 @@ elif page == "Forecasting Model and Evaluation":
 
     else:
         st.warning("The dataset must contain 'actual_cooling_load_kWh' and 'predicted_cooling_load_kWh' columns.")
+        
+# ----- OPERATIONAL OVERVIEW PAGE -----
+elif page == "Operational Overview":
+    st.title("⚙️ Operational Overview")
+
+    # 1. Daily Aggregated Trends
+    st.subheader("📊 Daily Aggregated Occupancy Trends")
+
+    # Ensure 'timestamp' is datetime
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+    # Create 'date' column
+    df['date'] = df['timestamp'].dt.date
+
+    # Group by date
+    daily_df = df.groupby('date').agg({
+        'rolling_avg_occupancy_3h': 'mean',
+        'rolling_max_occupancy_6h': 'max'
+    }).reset_index()
+
+    # Reshape for single plot
+    daily_avg = daily_df[['date', 'rolling_avg_occupancy_3h']].rename(
+        columns={'rolling_avg_occupancy_3h': 'Occupancy', 'date': 'Date'})
+    daily_avg['Metric'] = '3h Rolling Avg Occupancy'
+
+    daily_max = daily_df[['date', 'rolling_max_occupancy_6h']].rename(
+        columns={'rolling_max_occupancy_6h': 'Occupancy', 'date': 'Date'})
+    daily_max['Metric'] = '6h Rolling Max Occupancy'
+
+    combined_df = pd.concat([daily_avg, daily_max])
+
+    # Plot using Plotly with custom colors
+    fig = px.line(
+        combined_df,
+        x='Date',
+        y='Occupancy',
+        color='Metric',
+        title='📈 Daily Rolling Avg (3h) and Max (6h) Occupancy',
+        labels={'Date': 'Date', 'Occupancy': 'Occupancy (%)'},
+        markers=True,
+        color_discrete_map={
+            '3h Rolling Avg Occupancy': 'blue',
+            '6h Rolling Max Occupancy': 'red'
+        }
+    )
+
+    fig.update_layout(
+        xaxis=dict(tickangle=45),
+        legend_title_text='',
+        height=500
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+
+    # 2. Zoning Mode Summary
+    st.subheader("🏢 Zoning Mode Distribution")
+
+    if "zoning_mode" in df.columns:
+        zoning_counts = df["zoning_mode"].value_counts().reset_index()
+        zoning_counts.columns = ["Zoning Mode", "Count"]
+
+        fig_zone = px.bar(
+            zoning_counts,
+            x="Zoning Mode",
+            y="Count",
+            color="Zoning Mode",
+            title="Zoning Mode Usage Frequency",
+            text_auto=True
+        )
+        fig_zone.update_layout(showlegend=False)
+        st.plotly_chart(fig_zone, use_container_width=True)
+    else:
+        st.warning("Zoning mode data not found.")
+
