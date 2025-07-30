@@ -23,52 +23,28 @@ if page == "Executive Summary":
 
     # ----- KPI CALCULATIONS -----
     total_actual_energy = df["actual_cooling_load_kWh"].sum()
-    total_baseline_energy = df["baseline_cooling_load"].sum()
-    total_predicted_energy = df["predicted_cooling_load_kWh"].sum()
-    total_energy_saved = total_baseline_energy - df["optimized_cooling_load_kWh"].sum()
-
+    total_energy_saved = df["baseline_cooling_load"].sum() - df["optimized_cooling_load_kWh"].sum()
     average_occupancy_pct = df["occupancy_pct"].mean()
     comfort_compliance_pct = ((df["adjusted_setpoint"] >= 22) & (df["adjusted_setpoint"] <= 25)).mean() * 100
-    peak_occupancy_count = df["occupancy_count"].max()
 
     # ----- KPI DISPLAY -----
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("⚡ Total Actual Energy (kWh)", f"{total_actual_energy:,.0f}")
-    with col2: st.metric("🏛️ Total Baseline Energy (kWh)", f"{total_baseline_energy:,.0f}")
-    with col3: st.metric("📊 Total Predicted Energy (kWh)", f"{total_predicted_energy:,.0f}")
-    with col4: st.metric("✅ Total Energy Saved (kWh)", f"{total_energy_saved:,.0f}")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("⚡ Total Actual Energy (kWh)", f"{total_actual_energy:,.0f}")
+    with col2:
+        st.metric("✅ Total Energy Saved (kWh)", f"{total_energy_saved:,.0f}")
 
     st.markdown("")
-    col5, col6, col7 = st.columns(3)
-    with col5: st.metric("👥 Avg. Occupancy (%)", f"{average_occupancy_pct:.1f}%")
-    with col6: st.metric("🌡️ Comfort Compliance (%)", f"{comfort_compliance_pct:.1f}%")
-    with col7: st.metric("🚶‍♂️ Peak Occupancy Count", f"{peak_occupancy_count}")
+    col3, col4 = st.columns(2)
+    with col3:
+        st.metric("👥 Avg. Occupancy (%)", f"{average_occupancy_pct:.1f}%")
+    with col4:
+        st.metric("🌡️ Comfort Compliance (%)", f"{comfort_compliance_pct:.1f}%")
 
-    st.markdown("## 📈 Energy Performance")
-
-    # ----- LINE CHART: Monthly Cooling Load Trend -----
-    st.markdown("### 📅 Monthly Cooling Load Trend")
-    monthly_trend_df = df.groupby("month_year")["actual_cooling_load_kWh"].sum().reset_index()
-
-    fig = px.line(
-    monthly_trend_df,
-    x="month_year",  # ✅ Use the correct column name
-    y="actual_cooling_load_kWh",
-    markers=True,
-    labels={"month_year": "Month", "actual_cooling_load_kWh": "Cooling Load (kWh)"},
-    title="Cooling Load Trend Over Months"
-)
-
-    fig.update_layout(
-        xaxis_title="Date",
-        yaxis_title="Total Cooling Load (kWh)",
-        font=dict(color="#262730"),
-        
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("## Energy Performance")
 
     # ----- BAR CHART: Zone-wise Cooling Load -----
-    st.markdown("### 🗂️ Energy Consumption by Zone")
+    st.markdown("### Energy Consumption by Zone")
     zone_energy_df = df.groupby("zone_id")["actual_cooling_load_kWh"].sum().reset_index()
     zone_energy_df = zone_energy_df.sort_values(by="actual_cooling_load_kWh", ascending=False)
 
@@ -90,7 +66,7 @@ if page == "Executive Summary":
     st.plotly_chart(fig, use_container_width=True)
 
     # ----- DONUT CHART: Cooling Load by Zone Function -----
-    st.markdown("### 🍩 Cooling Load Distribution by Zone Function")
+    st.markdown("### Cooling Load Distribution by Zone Function")
     function_df = df.groupby("zone_function")["actual_cooling_load_kWh"].sum().reset_index()
 
     fig = px.pie(
@@ -109,9 +85,33 @@ if page == "Executive Summary":
         plot_bgcolor='rgba(0,0,0,0)'
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    # ----- LINE CHART: Monthly Cooling Load Trend -----
+    st.markdown("### Monthly Cooling Load Trend")
+    monthly_trend_df = df.groupby("month_year")["actual_cooling_load_kWh"].sum().reset_index()
+
+    fig = px.line(
+    monthly_trend_df,
+    x="month_year",  # ✅ Use the correct column name
+    y="actual_cooling_load_kWh",
+    markers=True,
+    labels={"month_year": "Month", "actual_cooling_load_kWh": "Cooling Load (kWh)"},
+    title="Cooling Load Trend Over Months"
+)
+
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title="Total Cooling Load (kWh)",
+        font=dict(color="#262730"),
+        
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
 
 elif page == "Occupancy":
     st.title("📍 Occupancy Analytics")
+    
 
     # ----- 1. HEATMAP -----
     st.markdown("### 🕒 Occupancy Heatmap by Hour & Day")
